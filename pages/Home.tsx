@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Map, List, Plus, Navigation, Search, Loader2, CheckCircle, LogOut, X } from 'lucide-react';
-// Correct functionality: imports are relative to pages folder now, so we need to go up one level
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Map, List, Plus, Navigation, Search, Loader2, CheckCircle, LogOut, X, RefreshCw } from 'lucide-react';
 import MapView from '../components/MapView';
 import UpdateCard from '../components/UpdateCard';
 import PostModal from '../components/PostModal';
@@ -8,37 +7,8 @@ import PostModal from '../components/PostModal';
 import { CityUpdate, Coordinates, UpdateCategory, ViewState } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getActiveUpdates, createUpdate } from '../services/updatesService';
 
-// Demo initial data
-const INITIAL_UPDATES: CityUpdate[] = [
-    {
-        id: '1',
-        category: UpdateCategory.TRAFFIC,
-        description: 'Heavy congestion due to road work on 5th Avenue.',
-        timestamp: Date.now() - 1000 * 60 * 5, // 5 mins ago
-        location: { lat: 40.7128, lng: -74.0060 },
-        expiresAt: Date.now() + 3600000,
-        likes: 12
-    },
-    {
-        id: '2',
-        category: UpdateCategory.EVENT,
-        description: 'Pop-up farmers market near the central park entrance.',
-        timestamp: Date.now() - 1000 * 60 * 30, // 30 mins ago
-        location: { lat: 40.7138, lng: -74.0050 },
-        expiresAt: Date.now() + 7200000,
-        likes: 45
-    },
-    {
-        id: '3',
-        category: UpdateCategory.ISSUE,
-        description: 'Street light malfunction at the intersection.',
-        timestamp: Date.now() - 1000 * 60 * 15, // 15 mins ago
-        location: { lat: 40.7118, lng: -74.0070 },
-        expiresAt: Date.now() + 3600000,
-        likes: 3
-    }
-];
 
 // Helper for distance calculation (Haversine formula)
 const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -55,10 +25,12 @@ const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon
 
 const Home: React.FC = () => {
     // Auth State
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
     const navigate = useNavigate();
 
-    const [updates, setUpdates] = useState<CityUpdate[]>(INITIAL_UPDATES);
+    const [updates, setUpdates] = useState<CityUpdate[]>([]);
+    const [loadingUpdates, setLoadingUpdates] = useState(true);
+    const [updatesError, setUpdatesError] = useState<string | null>(null);
     const [viewState, setViewState] = useState<ViewState>({
         mode: 'MAP',
         center: { lat: 40.7128, lng: -74.0060 }, // NYC default
@@ -75,6 +47,26 @@ const Home: React.FC = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [showMobileSearch, setShowMobileSearch] = useState(false);
 
+    // Fetch updates from Firestore
+    const fetchUpdates = useCallback(async () => {
+        try {
+            setLoadingUpdates(true);
+            setUpdatesError(null);
+            const firestoreUpdates = await getActiveUpdates();
+            setUpdates(firestoreUpdates);
+        } catch (error) {
+            console.error('Error fetching updates:', error);
+            setUpdatesError('Failed to load updates');
+        } finally {
+            setLoadingUpdates(false);
+        }
+    }, []);
+
+    // Load updates on mount
+    useEffect(() => {
+        fetchUpdates();
+    }, [fetchUpdates]);
+
     // Load user location on mount
     useEffect(() => {
         if ('geolocation' in navigator) {
@@ -88,6 +80,7 @@ const Home: React.FC = () => {
                         ...prev,
                         center: coords
                     }));
+                    setLoadingLoc(false);
                 },
                 (err) => {
                     console.error("Geo error", err);
@@ -110,26 +103,36 @@ const Home: React.FC = () => {
         }).sort((a, b) => b.timestamp - a.timestamp);
     }, [updates, viewState.center]);
 
-    const handlePostUpdate = (description: string, category: UpdateCategory, location: Coordinates) => {
-        const newUpdate: CityUpdate = {
-            id: Date.now().toString(),
-            category,
-            description,
-            timestamp: Date.now(),
-            location: location,
-            expiresAt: Date.now() + 3600000 * 2, // 2 hours
-            likes: 0
-        };
+    const handlePostUpdate = async (description: string, category: UpdateCategory, location: Coordinates) => {
+        if (!user) {
+            setNotification({ message: 'Please log in to post updates', type: 'error' });
+            setTimeout(() => setNotification(null), 3000);
+            return;
+        }
 
-        setUpdates(prev => [newUpdate, ...prev]);
-        setIsPostModalOpen(false);
+        try {
+            const newUpdate = await createUpdate({
+                category,
+                description,
+                location,
+                authorId: user.uid,
+                expiresInHours: 2,
+            });
 
-        // Switch to map to see the drop
-        setViewState(prev => ({ ...prev, mode: 'MAP', center: location }));
+            setUpdates(prev => [newUpdate, ...prev]);
+            setIsPostModalOpen(false);
 
-        // Show success notification
-        setNotification({ message: 'Update posted successfully!', type: 'success' });
-        setTimeout(() => setNotification(null), 3000);
+            // Switch to map to see the drop
+            setViewState(prev => ({ ...prev, mode: 'MAP', center: location }));
+
+            // Show success notification
+            setNotification({ message: 'Update posted successfully!', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (error) {
+            console.error('Error posting update:', error);
+            setNotification({ message: 'Failed to post update. Please try again.', type: 'error' });
+            setTimeout(() => setNotification(null), 3000);
+        }
     };
 
 
