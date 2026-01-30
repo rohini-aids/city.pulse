@@ -38,6 +38,7 @@ const Home: React.FC = () => {
     });
     const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
     const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+    const [isPosting, setIsPosting] = useState(false);
     const [loadingLoc, setLoadingLoc] = useState(false);
 
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -110,6 +111,7 @@ const Home: React.FC = () => {
             return;
         }
 
+        setIsPosting(true);
         try {
             const newUpdate = await createUpdate({
                 category,
@@ -132,6 +134,8 @@ const Home: React.FC = () => {
             console.error('Error posting update:', error);
             setNotification({ message: 'Failed to post update. Please try again.', type: 'error' });
             setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsPosting(false);
         }
     };
 
@@ -391,7 +395,7 @@ const Home: React.FC = () => {
                 isOpen={isPostModalOpen}
                 onClose={() => setIsPostModalOpen(false)}
                 onSubmit={handlePostUpdate}
-                loading={false}
+                loading={isPosting}
                 userLocation={userLocation}
                 mapCenter={viewState.center}
             />
