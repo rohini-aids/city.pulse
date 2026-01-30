@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID
+    apiKey: "AIzaSyBfj0vfbOdHbWLKXwFBXZNZlUycRXH73KY",
+    authDomain: "citypulse-b5580.firebaseapp.com",
+    projectId: "citypulse-b5580",
+    storageBucket: "citypulse-b5580.firebasestorage.app",
+    messagingSenderId: "844904575146",
+    appId: "1:844904575146:web:008238c434d9773060e0d3"
 };
 
 const app = initializeApp(firebaseConfig);
