@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FirebaseError } from 'firebase/app';
@@ -8,8 +8,15 @@ const SignIn = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, isAuthenticated, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            navigate('/', { replace: true });
+        }
+    }, [isAuthenticated, authLoading, navigate]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
